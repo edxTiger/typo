@@ -671,4 +671,83 @@ describe Admin::ContentController do
 
     end
   end
+
+  describe 'merge articles' do
+
+    describe 'with non-admin connection' do
+
+      before(:each) do
+        Factory(:blog)
+        @user = Factory(:user, :profile => Factory(:profile_publisher))
+        @user.profile_id = 2
+        @article = Factory(:article, :user => @user)
+        request.session = {:user => @user.id}        
+      end
+
+      it 'should not render index' do
+        get :edit, 'id' => @article.id
+        response.should render_template('edit')        
+      end
+
+    end
+
+    describe 'with admin connection' do
+
+      before :each do
+        Factory(:blog)
+        @user = Factory(:user, :profile => Factory(:profile_admin, :label => Profile::ADMIN))
+        @article_1 = Factory(:article, title: "Title 1", author: "First", body: "LoremIpsum")
+        @article_2 = Factory(:article, title: "Title 2", author: "Second", body: "LoremIpsum 2")
+        request.session = {:user => @user.id}
+      end      
+
+      def article_check
+        art_1, art_2 = @article_1, @article_2
+        post :merge, id: art_1.id, merge_with: art_2.id
+        response.should redirect_to(:action => 'index')
+        assigns(:article).should be_published
+        assigns(:article).title.should == "#{art_1.title} #{art_2.title}"
+        assigns(:article).body.should == "#{art_1.body} #{art_2.body}"
+        assigns(:article).author.should == art_2.author
+      end
+
+      it 'should create a new article with the merge of two articles' do
+        @comment_1 = Factory(:comment, body: "Comment 1", article: @article_2)
+        @comment_2 = Factory(:comment, body: "Comment 2", article: @article_2)
+        article_check
+        assigns(:comment).first["article_id"].should == assigns(:article).id
+        assigns(:comment).last["article_id"].should == assigns(:article).id
+      end
+
+        it 'should create a new article with no comments' do
+        article_check
+        assigns(:comment).should == []
+      end
+
+      it 'should create a new article with one comment' do
+        @comment_1 = Factory(:comment, body: "Comment 1", article: @article_2)
+        article_check
+        assigns(:comment).first["article_id"].should == assigns(:article).id
+      end
+
+      it 'should create an article with a redirect' do
+        post :merge, id: @article_1.id, merge_with: @article_2.id
+        assigns(:article).redirects.count.should == 1
+      end
+
+      it 'should create a single article' do
+        Article.count.should be == 2
+        post :merge, id: @article_1.id, merge_with: @article_2.id
+        Article.count.should be == 1
+      end
+
+      it 'should not merge non-exiting comments' do
+        @comment_1 = Factory(:comment, body: "Comment 1", article: @article_2)
+        Comment.merge_with(@comment_1.id, -1).should eq([])
+      end
+
+    end
+
+  end
+
 end

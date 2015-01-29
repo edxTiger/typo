@@ -416,6 +416,21 @@ class Article < Content
     user.admin? || user_id == user.id
   end
 
+  def self.merge_with(id, merge_id)
+    begin
+      art_id = Article.find(id)
+      art_merge = Article.find(merge_id)
+    rescue ActiveRecord::RecordNotFound
+      raise
+    end 
+
+    article = Article.new()
+    article.title = "#{art_id.title} #{art_merge.title}"
+    article.body = "#{art_id.body} #{art_merge.body}"
+    article.author = art_merge.author
+    article
+  end
+
   protected
 
   def set_published_at

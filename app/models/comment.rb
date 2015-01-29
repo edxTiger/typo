@@ -32,6 +32,15 @@ class Comment < Feedback
     "Comment on #{article.title} by #{author}"
   end
 
+  def self.merge_with(id, merge_id)
+    com_id = Comment.find(:all, :conditions => [ "article_id = ?", id])
+    com_merge_id = Comment.find(:all, :conditions => [ "article_id = ?", merge_id])
+
+    comment = com_merge_id
+    comment = com_id.zip(com_merge_id).flatten.compact unless com_id.empty?
+    comment
+  end
+
   protected
 
   def article_allows_feedback?
